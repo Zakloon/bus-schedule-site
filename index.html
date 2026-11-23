@@ -1,0 +1,314 @@
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>Автобусы МУПАТ</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column over a northern-lights night photo. Panels are dark glass so text stays readable.
+   Palette is taken from the photo: deep night navy, aurora green, and a teal that sits between them. */
+:root{
+  --bg:#060D1A;
+  --surface:rgba(8,18,32,.76);
+  --ink:#EAF7F1;
+  --muted:#A6C2B8;
+  --line:rgba(150,235,200,.22);
+  --accent:#3DDC97;
+  --accent-ink:#04170D;
+  --accent-soft:rgba(61,220,151,.18);
+  --teal:#1FA58A;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; color:var(--ink); background-color:var(--bg);
+  font-family:"Manrope",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px; line-height:1.45;
+  padding-inline:max(16px,env(safe-area-inset-left,0px)) max(16px,env(safe-area-inset-right,0px));
+  padding-block:20px 40px;
+}
+.banner{max-width:720px;margin:0 auto 16px}
+.banner img{display:block;width:100%;height:auto;border-radius:22px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px;min-width:0}
+h1,h2{font-family:"Unbounded",system-ui,sans-serif;margin:0;text-wrap:balance}
+h1{font-size:24px;font-weight:800;letter-spacing:-.01em;text-shadow:0 2px 16px rgba(0,0,0,.45)}
+h2{font-size:14px;font-weight:600;letter-spacing:.02em}
+.hidden{display:none!important}
+
+.badge{
+  --h:160; width:52px;height:52px;flex:none;border-radius:16px;
+  background:linear-gradient(135deg, hsl(var(--h) 75% 58%), hsl(var(--h) 70% 36%));
+  color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.35);
+  display:grid;place-items:center;font-family:"Unbounded",sans-serif;font-weight:800;font-size:20px;
+  font-variant-numeric:tabular-nums;
+}
+.head{display:flex;flex-direction:column;gap:6px}
+.head p{margin:0;color:var(--muted)}
+
+/* Dropdowns for route and stops */
+.field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field select{
+  width:100%;min-height:50px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);
+  background:rgba(4,12,22,.85);color:var(--ink);font:inherit;font-size:15px;font-weight:600;
+  overflow-wrap:anywhere;
+}
+.field select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pick{display:flex;align-items:flex-end;gap:12px;min-width:0}
+.pick .badge{width:48px;height:48px;border-radius:15px;font-size:18px;margin-bottom:1px}
+
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;min-width:0;
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+.card-head span{color:var(--muted);font-size:13px}
+
+/* Segmented buttons: active one is aurora green */
+.seg{
+  display:flex;flex-wrap:wrap;gap:4px;padding:4px;border-radius:16px;
+  background:var(--surface);border:1px solid var(--line);backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.seg button{
+  flex:1 1 120px;min-width:0;border:0;background:transparent;color:var(--muted);
+  padding:10px 12px;border-radius:12px;font-family:inherit;font-weight:600;font-size:14px;cursor:pointer;text-align:center;
+  transition:background .15s, color .15s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{
+  background:linear-gradient(135deg,#5BF0AE,var(--accent)); color:var(--accent-ink);
+  box-shadow:0 4px 14px rgba(61,220,151,.28);
+}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Hero: next trip between the two chosen stops */
+.hero{
+  background:linear-gradient(135deg,#5BF0AE 0%,var(--accent) 45%,var(--teal) 100%);
+  color:var(--accent-ink);border-radius:22px;padding:20px 20px 18px;
+  box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+.hlabel{font-size:13px;font-weight:600;opacity:.85;overflow-wrap:anywhere}
+.big{font-family:"Unbounded",sans-serif;font-weight:800;font-size:56px;line-height:1.05;margin:6px 0 4px;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.sub{font-weight:700;font-size:16px}
+.later{margin-top:10px;font-size:14px;opacity:.9;font-variant-numeric:tabular-nums}
+
+.trips{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}
+.trip{
+  text-align:center;padding:10px 6px;border-radius:12px;border:1px solid var(--line);background:rgba(4,12,22,.6);
+  font-weight:600;font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;
+}
+.trip.past{opacity:.35}
+.trip.next{background:var(--accent);color:var(--accent-ink);border-color:transparent;box-shadow:0 4px 14px rgba(61,220,151,.25)}
+.trip-note{font-size:13px;color:var(--muted);margin:10px 0 0}
+
+footer{color:var(--muted);font-size:13px;line-height:1.5;padding:0 4px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+footer a{color:var(--ink);text-underline-offset:3px}
+.msg{padding:24px;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<header class="banner"><img src="bg.jpg" alt="Фото северного сияния"></header>
+
+<main class="wrap" id="app"><p class="msg">Загружаю расписание…</p></main>
+
+<script>
+const LABELS = { weekday:"Будни", weekend:"Выходные", daily:"Ежедневно", sat:"Суббота", sun:"Воскресенье" };
+const app = document.getElementById("app");
+let ROUTES = [];
+const ui = { state: {} };
+
+/* Yekaterinburg clock (UTC+5), independent of the viewer's time zone. */
+function now(){
+  const d = new Date(Date.now() + 5 * 3600e3);
+  return { dow: d.getUTCDay(), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
+}
+const fmt = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+function until(m){
+  if (m < 1) return "сейчас";
+  const h = Math.floor(m / 60), x = m % 60;
+  return h ? `через ${h} ч ${x} мин` : `через ${x} мин`;
+}
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+/* Badge hues stay in the aurora range (green to teal) so every route matches the palette. */
+const hue = id => 150 + ((parseInt(id, 10) * 29) % 45);
+const labelsOf = r => [...new Set(r.blocks.map(b => b.label))];
+
+function defaultLabel(r, dow){
+  const prefs = dow === 0 ? ["sun","weekend","weekday","daily"]
+              : dow === 6 ? ["sat","weekend","weekday","daily"]
+              : ["weekday","daily","weekend","sat","sun"];
+  const avail = labelsOf(r);
+  return prefs.find(p => avail.includes(p)) || avail[0];
+}
+const currentRoute = () => { const m = location.hash.match(/^#route-(\d+)$/); return m ? ROUTES.find(x => x.id === m[1]) : undefined; };
+
+/* Route state: day, direction, boarding stop (from), alighting stop (to). Remembered per route in this session. */
+function ctx(r){
+  const n = now();
+  let st = ui.state[r.id];
+  if (!st){ st = { label: defaultLabel(r, n.dow), dir: 0, from: 0, to: null }; ui.state[r.id] = st; }
+  const labels = labelsOf(r);
+  if (!labels.includes(st.label)) st.label = labels[0];
+  const blocks = r.blocks.filter(b => b.label === st.label);
+  if (st.dir >= blocks.length) st.dir = 0;
+  const stops = blocks[st.dir].stops;
+  const last = stops.length - 1;
+  if (st.from < 0 || st.from > last) st.from = 0;
+  if (st.to === null || st.to > last || st.to <= st.from) st.to = last;
+  return { n, st, labels, blocks, stops, last };
+}
+
+/* Trips between two stops. Each departure from "from" is paired with the time at "to" nearest to the typical travel time. */
+function tripsBetween(stops, a, b){
+  const A = stops[a][1], B = stops[b][1];
+  const diffs = [];
+  for (let i = 0; i < Math.min(A.length, B.length); i++) diffs.push(B[i] - A[i]);
+  diffs.sort((x, y) => x - y);
+  const travel = diffs.length ? diffs[Math.floor(diffs.length / 2)] : 0;
+  return A.map(dep => {
+    const target = dep + travel;
+    const arr = B.length ? B.reduce((best, t) => Math.abs(t - target) < Math.abs(best - target) ? t : best) : undefined;
+    return { dep, arr, travel };
+  });
+}
+
+function liveHTML(stops, st, n){
+  const a = st.from, b = st.to;
+  const trips = tripsBetween(stops, a, b);
+  const fromName = stops[a][0], toName = stops[b][0];
+  const stopsOnWay = b - a;
+  const nextI = trips.findIndex(t => t.dep >= n.min);
+  let big, sub, later;
+  if (trips.length === 0){
+    big = "—"; sub = "Нет рейсов"; later = "";
+  } else if (nextI < 0){
+    big = fmt(trips[0].dep); sub = "Сегодня рейсов больше нет"; later = `Первый рейс завтра: ${fmt(trips[0].dep)}`;
+  } else {
+    const t = trips[nextI];
+    big = fmt(t.dep); sub = until(t.dep - n.min);
+    later = t.arr !== undefined ? `Приедет на «${esc(toName)}» около ${fmt(t.arr)} · в пути ~${t.travel} мин` : "";
+  }
+  const list = trips.map((t, i) => {
+    const past = nextI < 0 ? true : i < nextI;
+    const cls = [past ? "past" : "", i === nextI ? "next" : ""].join(" ").trim();
+    return `<span class="trip ${cls}">${fmt(t.dep)} → ${t.arr !== undefined ? fmt(t.arr) : "—"}</span>`;
+  }).join("");
+  return `
+    <section class="hero" aria-live="polite">
+      <div class="hlabel">От «${esc(fromName)}» до «${esc(toName)}» · остановок по пути: ${stopsOnWay}</div>
+      <div class="big">${big}</div>
+      <div class="sub">${sub}</div>
+      <div class="later">${later}</div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <div class="card-head"><h2>Все рейсы</h2><span>${trips.length} в день · отправление → прибытие</span></div>
+      <div class="trips">${list}</div>
+      <p class="trip-note">Время прибытия рассчитано по типичному времени в пути, поэтому может отличаться на 1–2 минуты.</p>
+    </section>`;
+}
+
+function routeOptions(selectedId){
+  return `<option value="" ${selectedId ? "" : "selected"} disabled>Выберите маршрут</option>` +
+    ROUTES.map(r => `<option value="${esc(r.id)}" ${r.id === selectedId ? "selected" : ""}>${esc(r.id)} · ${esc(r.name)}</option>`).join("");
+}
+
+function renderIndex(){
+  app.innerHTML = `
+    <header class="head">
+      <h1>Автобусы МУПАТ</h1>
+      <p>Расписание маршрутов Нового Уренгоя и Коротчаево. Выберите маршрут из списка.</p>
+    </header>
+    <section class="card">
+      <div class="field">
+        <label for="route-select">Маршрут</label>
+        <select id="route-select" data-role="route">${routeOptions(null)}</select>
+      </div>
+    </section>
+    <footer>Расписание взято с сайта <a href="https://mupat.ru/raspisanie" target="_blank" rel="noopener">mupat.ru</a>.
+      Время отправления может меняться из-за дорожной обстановки. Время показано по Екатеринбургу (UTC+5).
+      Праздничные дни не учтены: выберите нужный день вручную.</footer>`;
+}
+
+function renderRoute(r){
+  const { n, st, labels, blocks, stops, last } = ctx(r);
+  const daySeg = labels.length > 1
+    ? `<div class="seg" role="group" aria-label="День">${labels.map(l =>
+        `<button type="button" data-label="${esc(l)}" aria-pressed="${l === st.label}">${LABELS[l] || esc(l)}</button>`).join("")}</div>` : "";
+  const dirSeg = blocks.length > 1
+    ? `<div class="seg" role="group" aria-label="Направление">${blocks.map((b, i) =>
+        `<button type="button" data-dir="${i}" aria-pressed="${i === st.dir}">${esc(b.dir)}</button>`).join("")}</div>` : "";
+  const fromOpts = stops.slice(0, last).map(([name], i) =>
+    `<option value="${i}" ${i === st.from ? "selected" : ""}>${i + 1}. ${esc(name)}</option>`).join("");
+  const toOpts = stops.map(([name], i) => i > st.from
+    ? `<option value="${i}" ${i === st.to ? "selected" : ""}>${i + 1}. ${esc(name)}</option>` : "").join("");
+
+  app.innerHTML = `
+    <header class="pick" style="--h:${hue(r.id)}">
+      <span class="badge">${esc(r.id)}</span>
+      <div class="field" style="flex:1">
+        <label for="route-select">Маршрут</label>
+        <select id="route-select" data-role="route">${routeOptions(r.id)}</select>
+      </div>
+    </header>
+    ${daySeg}
+    ${dirSeg}
+    <section class="card">
+      <div class="field">
+        <label for="from-select">Откуда (посадка)</label>
+        <select id="from-select" data-role="from">${fromOpts}</select>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label for="to-select">Куда (высадка)</label>
+        <select id="to-select" data-role="to">${toOpts}</select>
+      </div>
+    </section>
+    <div id="live">${liveHTML(stops, st, n)}</div>
+    <footer>Время отправления может меняться из-за дорожной обстановки. Время показано по Екатеринбургу (UTC+5).</footer>`;
+}
+
+function render(){
+  const r = currentRoute();
+  if (r){ renderRoute(r); window.scrollTo(0, 0); }
+  else renderIndex();
+}
+
+/* Changes to dropdowns and buttons. */
+app.addEventListener("change", e => {
+  const role = e.target.dataset.role;
+  if (role === "route"){
+    if (e.target.value) location.hash = "#route-" + e.target.value;
+    return;
+  }
+  const r = currentRoute();
+  if (!r) return;
+  const st = ui.state[r.id];
+  if (role === "from"){
+    st.from = Number(e.target.value);
+    const last = ctx(r).last;
+    st.to = Math.min(Math.max(st.to ?? last, st.from + 1), last);
+  }
+  if (role === "to") st.to = Number(e.target.value);
+  render();
+});
+app.addEventListener("click", e => {
+  const b = e.target.closest("[data-label],[data-dir]");
+  if (!b) return;
+  const r = currentRoute();
+  if (!r) return;
+  const st = ui.state[r.id];
+  if (b.dataset.label !== undefined){ st.label = b.dataset.label; st.dir = 0; st.from = 0; st.to = null; }
+  if (b.dataset.dir !== undefined){ st.dir = Number(b.dataset.dir); st.from = 0; st.to = null; }
+  render();
+});
+window.addEventListener("hashchange", render);
+
+fetch("routes.json")
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => {
+    ROUTES = d; render();
+    setInterval(() => {
+      const r = currentRoute();
+      const live = document.getElementById("live");
+      if (r && live){ const c = ctx(r); live.innerHTML = liveHTML(c.stops, c.st, now()); }
+    }, 30000);
+  })
+  .catch(() => { app.innerHTML = '<p class="msg">Не удалось загрузить расписание. Обновите страницу.</p>'; });
+</script>
