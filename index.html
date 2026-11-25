@@ -137,6 +137,24 @@ h2{font-size:14px;font-weight:600;letter-spacing:.02em}
 footer{color:var(--muted);font-size:13px;line-height:1.5;padding:0 4px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
 footer a{color:var(--ink);text-underline-offset:3px}
 .msg{padding:24px;text-align:center;color:var(--muted)}
+
+/* Favourite routes */
+.fav-btn{
+  width:100%;min-height:48px;border-radius:14px;border:1px solid var(--line);cursor:pointer;
+  background:rgba(4,12,22,.85);color:var(--ink);font-family:inherit;font-weight:700;font-size:15px;
+}
+.fav-btn[aria-pressed="true"]{background:linear-gradient(135deg,#5BF0AE,var(--accent));color:var(--accent-ink);border-color:transparent}
+.fav-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fav-list{display:flex;flex-wrap:wrap;gap:8px}
+.fav-list a{
+  display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);
+  background:var(--accent-soft);color:var(--ink);text-decoration:none;font-weight:700;font-size:15px;
+}
+.fav-list a b{font-family:"Unbounded",sans-serif;color:var(--accent)}
+@media (max-width:600px){
+  .fav-btn{min-height:58px;font-size:18px;border-radius:16px}
+  .fav-list a{font-size:18px;padding:14px 16px;border-radius:16px}
+}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
 
@@ -172,6 +190,16 @@ function defaultLabel(r, dow){
               : ["weekday","daily","weekend","sat","sun"];
   const avail = labelsOf(r);
   return prefs.find(p => avail.includes(p)) || avail[0];
+}
+/* Favourite routes are kept on this device only (localStorage). Every access is guarded, so the page still works without storage. */
+function favs(){
+  try { const a = JSON.parse(localStorage.getItem("mupat-favs") || "[]"); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function toggleFav(id){
+  const list = favs();
+  const next = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+  try { localStorage.setItem("mupat-favs", JSON.stringify(next)); } catch (e) {}
 }
 const currentRoute = () => { const m = location.hash.match(/^#route-(\d+)$/); return m ? ROUTES.find(x => x.id === m[1]) : undefined; };
 
@@ -246,11 +274,19 @@ function routeOptions(selectedId){
 }
 
 function renderIndex(){
+  const favRoutes = favs().map(id => ROUTES.find(x => x.id === id)).filter(Boolean);
+  const favHTML = favRoutes.length
+    ? `<section class="card">
+        <div class="card-head"><h2>Избранное</h2><span>${favRoutes.length}</span></div>
+        <div class="fav-list">${favRoutes.map(r =>
+          `<a href="#route-${esc(r.id)}"><b>${esc(r.id)}</b>${esc(r.name)}</a>`).join("")}</div>
+      </section>` : "";
   app.innerHTML = `
     <header class="head">
       <h1>Автобусы МУПАТ</h1>
       <p>Расписание маршрутов Нового Уренгоя и Коротчаево. Выберите маршрут из списка.</p>
     </header>
+    ${favHTML}
     <section class="card">
       <div class="field">
         <label for="route-select">Маршрут</label>
@@ -283,6 +319,7 @@ function renderRoute(r){
         <select id="route-select" data-role="route">${routeOptions(r.id)}</select>
       </div>
     </header>
+    <button type="button" class="fav-btn" data-fav="${esc(r.id)}" aria-pressed="${favs().includes(r.id)}">${favs().includes(r.id) ? "★ В избранном" : "☆ Добавить в избранное"}</button>
     ${daySeg}
     ${dirSeg}
     <section class="card">
@@ -324,6 +361,8 @@ app.addEventListener("change", e => {
   render();
 });
 app.addEventListener("click", e => {
+  const f = e.target.closest("[data-fav]");
+  if (f){ toggleFav(f.dataset.fav); render(); return; }
   const b = e.target.closest("[data-label],[data-dir]");
   if (!b) return;
   const r = currentRoute();
