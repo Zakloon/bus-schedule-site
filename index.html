@@ -146,14 +146,24 @@ footer a{color:var(--ink);text-underline-offset:3px}
 .fav-btn[aria-pressed="true"]{background:linear-gradient(135deg,#5BF0AE,var(--accent));color:var(--accent-ink);border-color:transparent}
 .fav-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .fav-list{display:flex;flex-wrap:wrap;gap:8px}
-.fav-list a{
-  display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:14px;border:1px solid var(--line);
-  background:var(--accent-soft);color:var(--ink);text-decoration:none;font-weight:700;font-size:15px;
+.fav-list{display:flex;flex-direction:column;gap:10px}
+.fav-item{
+  display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:16px;border:1px solid var(--line);
+  background:rgba(4,12,22,.6);color:var(--ink);text-decoration:none;min-width:0;
 }
-.fav-list a b{font-family:"Unbounded",sans-serif;color:var(--accent)}
+.fav-item .badge{width:46px;height:46px;font-size:17px;border-radius:14px}
+.fav-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fav-txt b{font-size:15px;overflow-wrap:anywhere}
+.fav-txt small{color:var(--accent);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.next-line{font-size:15px;color:var(--muted);padding:0 4px;font-variant-numeric:tabular-nums}
+.next-line b{color:var(--accent);font-weight:700}
 @media (max-width:600px){
   .fav-btn{min-height:58px;font-size:18px;border-radius:16px}
-  .fav-list a{font-size:18px;padding:14px 16px;border-radius:16px}
+  .fav-item{padding:16px;border-radius:18px;gap:16px}
+  .fav-item .badge{width:56px;height:56px;font-size:21px;border-radius:16px}
+  .fav-txt b{font-size:19px}
+  .fav-txt small{font-size:17px}
+  .next-line{font-size:18px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 </style>
@@ -273,14 +283,41 @@ function routeOptions(selectedId){
     ROUTES.map(r => `<option value="${esc(r.id)}" ${r.id === selectedId ? "selected" : ""}>${esc(r.id)} · ${esc(r.name)}</option>`).join("");
 }
 
+/* Next departure of a route for the whole line (first stop to last), on the day that applies today. */
+function nextInfo(r){
+  const n = now();
+  const label = defaultLabel(r, n.dow);
+  const blocks = r.blocks.filter(b => b.label === label);
+  if (!blocks.length) return null;
+  const stops = blocks[0].stops, last = stops.length - 1;
+  if (last < 1) return null;
+  const t = tripsBetween(stops, 0, last).find(x => x.dep >= n.min);
+  return t ? { dep: t.dep, left: t.dep - n.min } : null;
+}
+function favRoutesList(){
+  return favs().map(id => ROUTES.find(x => x.id === id)).filter(Boolean);
+}
+function favItemsHTML(favRoutes){
+  return favRoutes.map(r => {
+    const x = nextInfo(r);
+    const when = x ? `${fmt(x.dep)} · ${until(x.left)}` : "сегодня рейсов больше нет";
+    return `<a class="fav-item" href="#route-${esc(r.id)}">
+      <span class="badge" style="--h:${hue(r.id)}">${esc(r.id)}</span>
+      <span class="fav-txt"><b>${esc(r.name)}</b><small>Ближайший: ${when}</small></span>
+    </a>`;
+  }).join("");
+}
+function favListHTML(){
+  const favRoutes = favRoutesList();
+  if (!favRoutes.length) return "";
+  return `<section class="card">
+      <div class="card-head"><h2>Избранное</h2><span>${favRoutes.length}</span></div>
+      <div class="fav-list" id="favs">${favItemsHTML(favRoutes)}</div>
+    </section>`;
+}
+
 function renderIndex(){
-  const favRoutes = favs().map(id => ROUTES.find(x => x.id === id)).filter(Boolean);
-  const favHTML = favRoutes.length
-    ? `<section class="card">
-        <div class="card-head"><h2>Избранное</h2><span>${favRoutes.length}</span></div>
-        <div class="fav-list">${favRoutes.map(r =>
-          `<a href="#route-${esc(r.id)}"><b>${esc(r.id)}</b>${esc(r.name)}</a>`).join("")}</div>
-      </section>` : "";
+  const favHTML = favListHTML();
   app.innerHTML = `
     <header class="head">
       <h1>Автобусы МУПАТ</h1>
@@ -296,6 +333,13 @@ function renderIndex(){
     <footer>Расписание взято с сайта <a href="https://mupat.ru/raspisanie" target="_blank" rel="noopener">mupat.ru</a>.
       Время отправления может меняться из-за дорожной обстановки. Время показано по Екатеринбургу (UTC+5).
       Праздничные дни не учтены: выберите нужный день вручную.</footer>`;
+}
+
+function nextLine(r){
+  const x = nextInfo(r);
+  return x
+    ? `<div class="next-line">Ближайший рейс: <b>${fmt(x.dep)}</b> · ${until(x.left)}</div>`
+    : `<div class="next-line">Сегодня рейсов больше нет</div>`;
 }
 
 function renderRoute(r){
@@ -319,6 +363,7 @@ function renderRoute(r){
         <select id="route-select" data-role="route">${routeOptions(r.id)}</select>
       </div>
     </header>
+    ${nextLine(r)}
     <button type="button" class="fav-btn" data-fav="${esc(r.id)}" aria-pressed="${favs().includes(r.id)}">${favs().includes(r.id) ? "★ В избранном" : "☆ Добавить в избранное"}</button>
     ${daySeg}
     ${dirSeg}
@@ -382,6 +427,8 @@ fetch("routes.json")
       const r = currentRoute();
       const live = document.getElementById("live");
       if (r && live){ const c = ctx(r); live.innerHTML = liveHTML(c.stops, c.st, now()); }
+      const fl = document.getElementById("favs");
+      if (!r && fl) fl.innerHTML = favItemsHTML(favRoutesList());
     }, 30000);
   })
   .catch(() => { app.innerHTML = '<p class="msg">Не удалось загрузить расписание. Обновите страницу.</p>'; });
