@@ -138,6 +138,21 @@ footer{color:var(--muted);font-size:13px;line-height:1.5;padding:0 4px;text-shad
 footer a{color:var(--ink);text-underline-offset:3px}
 .msg{padding:24px;text-align:center;color:var(--muted)}
 
+/* Top navigation: available on every screen */
+.topnav{display:flex;gap:8px}
+.topnav a{
+  flex:1 1 0;text-align:center;padding:12px 10px;border-radius:14px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);text-decoration:none;font-weight:700;font-size:15px;
+  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+}
+.topnav a:first-child{color:var(--muted)}
+.topnav a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.empty-fav{margin:0;color:var(--muted);font-size:15px}
+@media (max-width:600px){
+  .topnav a{font-size:18px;padding:16px 10px;border-radius:16px}
+  .empty-fav{font-size:17px}
+}
+
 /* Favourite routes */
 .fav-btn{
   width:100%;min-height:48px;border-radius:14px;border:1px solid var(--line);cursor:pointer;
@@ -309,16 +324,23 @@ function favItemsHTML(favRoutes){
 }
 function favListHTML(){
   const favRoutes = favRoutesList();
-  if (!favRoutes.length) return "";
-  return `<section class="card">
+  if (!favRoutes.length) return `<section class="card" id="fav-section">
+      <div class="card-head"><h2>Избранное</h2></div>
+      <p class="empty-fav">Пока пусто. Откройте маршрут и нажмите «☆ Добавить в избранное».</p>
+    </section>`;
+  return `<section class="card" id="fav-section">
       <div class="card-head"><h2>Избранное</h2><span>${favRoutes.length}</span></div>
       <div class="fav-list" id="favs">${favItemsHTML(favRoutes)}</div>
     </section>`;
+}
+function navHTML(){
+  return `<nav class="topnav" aria-label="Навигация"><a href="#">Все маршруты</a><a href="#favs">★ Избранное</a></nav>`;
 }
 
 function renderIndex(){
   const favHTML = favListHTML();
   app.innerHTML = `
+    ${navHTML()}
     <header class="head">
       <h1>Автобусы МУПАТ</h1>
       <p>Расписание маршрутов Нового Уренгоя и Коротчаево. Выберите маршрут из списка.</p>
@@ -356,6 +378,7 @@ function renderRoute(r){
     ? `<option value="${i}" ${i === st.to ? "selected" : ""}>${i + 1}. ${esc(name)}</option>` : "").join("");
 
   app.innerHTML = `
+    ${navHTML()}
     <header class="pick" style="--h:${hue(r.id)}">
       <span class="badge">${esc(r.id)}</span>
       <div class="field" style="flex:1">
@@ -383,8 +406,12 @@ function renderRoute(r){
 
 function render(){
   const r = currentRoute();
-  if (r){ renderRoute(r); window.scrollTo(0, 0); }
-  else renderIndex();
+  if (r){ renderRoute(r); window.scrollTo(0, 0); return; }
+  renderIndex();
+  if (location.hash === "#favs"){
+    const s = document.getElementById("fav-section");
+    if (s) s.scrollIntoView({ block: "start" });
+  } else window.scrollTo(0, 0);
 }
 
 /* Changes to dropdowns and buttons. */
