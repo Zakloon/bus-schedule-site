@@ -160,6 +160,8 @@ footer a{color:var(--ink);text-underline-offset:3px}
 }
 .fav-btn[aria-pressed="true"]{background:linear-gradient(135deg,#5BF0AE,var(--accent));color:var(--accent-ink);border-color:transparent}
 .fav-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fav-btn small{display:block;font-weight:600;font-size:13px;opacity:.85;margin-top:2px}
+.fav-path{display:block;color:var(--muted);font-size:14px;font-weight:600}
 .fav-list{display:flex;flex-wrap:wrap;gap:8px}
 .fav-list{display:flex;flex-direction:column;gap:10px}
 .fav-item{
@@ -217,13 +219,22 @@ function defaultLabel(r, dow){
   return prefs.find(p => avail.includes(p)) || avail[0];
 }
 /* Favourite routes are kept on this device only (localStorage). Every access is guarded, so the page still works without storage. */
+/* A favourite is a route plus the boarding and alighting stop names (older entries hold only the route id). */
 function favs(){
-  try { const a = JSON.parse(localStorage.getItem("mupat-favs") || "[]"); return Array.isArray(a) ? a : []; }
-  catch (e) { return []; }
+  try {
+    const a = JSON.parse(localStorage.getItem("mupat-favs") || "[]");
+    return (Array.isArray(a) ? a : []).map(x => typeof x === "string" ? { id: x, from: null, to: null } : x).filter(x => x && x.id);
+  } catch (e) { return []; }
 }
-function toggleFav(id){
+const favKey = f => f.id + "|" + (f.from || "") + "|" + (f.to || "");
+function isFav(id, from, to){
+  const k = favKey({ id, from, to });
+  return favs().some(f => favKey(f) === k);
+}
+function toggleFav(id, from, to){
+  const k = favKey({ id, from, to });
   const list = favs();
-  const next = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+  const next = list.some(f => favKey(f) === k) ? list.filter(f => favKey(f) !== k) : [...list, { id, from, to }];
   try { localStorage.setItem("mupat-favs", JSON.stringify(next)); } catch (e) {}
 }
 const currentRoute = () => { const m = location.hash.match(/^#route-(\d+)$/); return m ? ROUTES.find(x => x.id === m[1]) : undefined; };
@@ -242,6 +253,7 @@ function ctx(r){
   if (st.from < 0 || st.from > last) st.from = 0;
   if (st.to === null || st.to > last || st.to <= st.from) st.to = last;
   return { n, st, labels, blocks, stops, last };
+
 }
 
 /* Trips between two stops. Each departure from "from" is paired with the time at "to" nearest to the typical travel time. */
@@ -309,28 +321,50 @@ function nextInfo(r){
   const t = tripsBetween(stops, 0, last).find(x => x.dep >= n.min);
   return t ? { dep: t.dep, left: t.dep - n.min } : null;
 }
-function favRoutesList(){
-  return favs().map(id => ROUTES.find(x => x.id === id)).filter(Boolean);
+/* Finds the direction in which both named stops occur, in order. */
+function matchTrip(r, fromName, toName, label){
+  const blocks = r.blocks.filter(b => b.label === label);
+  for (let d = 0; d < blocks.length; d++){
+    const names = blocks[d].stops.map(s => s[0]);
+    const a = names.indexOf(fromName), z = names.indexOf(toName);
+    if (a >= 0 && z > a) return { dir: d, a, z, stops: blocks[d].stops };
+  }
+  return null;
 }
-function favItemsHTML(favRoutes){
-  return favRoutes.map(r => {
-    const x = nextInfo(r);
+function nextFor(r, fromName, toName){
+  const n = now();
+  const m = matchTrip(r, fromName, toName, defaultLabel(r, n.dow));
+  if (!m) return null;
+  const t = tripsBetween(m.stops, m.a, m.z).find(x => x.dep >= n.min);
+  return t ? { dep: t.dep, left: t.dep - n.min } : null;
+}
+function favRoutesList(){
+  return favs().map(f => {
+    const r = ROUTES.find(x => x.id === f.id);
+    return r ? { r, from: f.from, to: f.to } : null;
+  }).filter(Boolean);
+}
+function favItemsHTML(list){
+  return list.map(({ r, from, to }) => {
+    const hasStops = !!(from && to);
+    const x = hasStops ? nextFor(r, from, to) : nextInfo(r);
     const when = x ? `${fmt(x.dep)} · ${until(x.left)}` : "сегодня рейсов больше нет";
-    return `<a class="fav-item" href="#route-${esc(r.id)}">
+    const path = hasStops ? `<small class="fav-path">от «${esc(from)}» до «${esc(to)}»</small>` : "";
+    return `<a class="fav-item" href="#route-${esc(r.id)}" data-open-id="${esc(r.id)}" data-open-from="${esc(from || "")}" data-open-to="${esc(to || "")}">
       <span class="badge" style="--h:${hue(r.id)}">${esc(r.id)}</span>
-      <span class="fav-txt"><b>${esc(r.name)}</b><small>Ближайший: ${when}</small></span>
+      <span class="fav-txt"><b>${esc(r.name)}</b>${path}<small>Ближайший: ${when}</small></span>
     </a>`;
   }).join("");
 }
 function favListHTML(){
-  const favRoutes = favRoutesList();
-  if (!favRoutes.length) return `<section class="card" id="fav-section">
+  const list = favRoutesList();
+  if (!list.length) return `<section class="card" id="fav-section">
       <div class="card-head"><h2>Избранное</h2></div>
-      <p class="empty-fav">Пока пусто. Откройте маршрут и нажмите «☆ Добавить в избранное».</p>
+      <p class="empty-fav">Пока пусто. Откройте маршрут, выберите остановки и нажмите «☆ Добавить в избранное».</p>
     </section>`;
   return `<section class="card" id="fav-section">
-      <div class="card-head"><h2>Избранное</h2><span>${favRoutes.length}</span></div>
-      <div class="fav-list" id="favs">${favItemsHTML(favRoutes)}</div>
+      <div class="card-head"><h2>Избранное</h2><span>${list.length}</span></div>
+      <div class="fav-list" id="favs">${favItemsHTML(list)}</div>
     </section>`;
 }
 function navHTML(){
@@ -358,7 +392,9 @@ function renderIndex(){
 }
 
 function nextLine(r){
-  const x = nextInfo(r);
+  const c = ctx(r);
+  const t = tripsBetween(c.stops, c.st.from, c.st.to).find(x => x.dep >= c.n.min);
+  const x = t ? { dep: t.dep, left: t.dep - c.n.min } : null;
   return x
     ? `<div class="next-line">Ближайший рейс: <b>${fmt(x.dep)}</b> · ${until(x.left)}</div>`
     : `<div class="next-line">Сегодня рейсов больше нет</div>`;
@@ -387,7 +423,10 @@ function renderRoute(r){
       </div>
     </header>
     ${nextLine(r)}
-    <button type="button" class="fav-btn" data-fav="${esc(r.id)}" aria-pressed="${favs().includes(r.id)}">${favs().includes(r.id) ? "★ В избранном" : "☆ Добавить в избранное"}</button>
+    <button type="button" class="fav-btn" data-toggle-id="${esc(r.id)}" data-toggle-from="${esc(stops[st.from][0])}" data-toggle-to="${esc(stops[st.to][0])}" aria-pressed="${isFav(r.id, stops[st.from][0], stops[st.to][0])}">
+      <span>${isFav(r.id, stops[st.from][0], stops[st.to][0]) ? "★ В избранном" : "☆ Добавить в избранное"}</span>
+      <small>${esc(stops[st.from][0])} → ${esc(stops[st.to][0])}</small>
+    </button>
     ${daySeg}
     ${dirSeg}
     <section class="card">
@@ -433,8 +472,16 @@ app.addEventListener("change", e => {
   render();
 });
 app.addEventListener("click", e => {
-  const f = e.target.closest("[data-fav]");
-  if (f){ toggleFav(f.dataset.fav); render(); return; }
+  const f = e.target.closest("[data-toggle-id]");
+  if (f){ toggleFav(f.dataset.toggleId, f.dataset.toggleFrom, f.dataset.toggleTo); render(); return; }
+  /* Opening a favourite restores its boarding and alighting stops. */
+  const fi = e.target.closest("[data-open-id]");
+  if (fi && fi.dataset.openFrom){
+    const r = ROUTES.find(x => x.id === fi.dataset.openId);
+    const label = r && defaultLabel(r, now().dow);
+    const m = r && matchTrip(r, fi.dataset.openFrom, fi.dataset.openTo, label);
+    if (m) ui.state[r.id] = { label, dir: m.dir, from: m.a, to: m.z };
+  }
   const b = e.target.closest("[data-label],[data-dir]");
   if (!b) return;
   const r = currentRoute();
