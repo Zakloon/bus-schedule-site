@@ -459,15 +459,14 @@ function navHTML(){
   return `<nav class="topnav" aria-label="Навигация"><a href="#">Все маршруты</a><a href="#favs">★ Избранное</a></nav>`;
 }
 
+/* «Все маршруты»: only the route picker. */
 function renderIndex(){
-  const favHTML = favListHTML();
   app.innerHTML = `
     ${navHTML()}
     <header class="head">
       <h1>Автобусы МУПАТ</h1>
       <p>Расписание маршрутов Нового Уренгоя и Коротчаево. Выберите маршрут из списка.</p>
     </header>
-    ${favHTML}
     <section class="card">
       <div class="field">
         <label for="route-select">Маршрут</label>
@@ -531,14 +530,22 @@ function renderRoute(r){
     <footer>Время отправления может меняться из-за дорожной обстановки. Время показано по Екатеринбургу (UTC+5).</footer>`;
 }
 
+/* «Избранное»: only the saved routes, no route picker. */
+function renderFavs(){
+  app.innerHTML = `
+    ${navHTML()}
+    <header class="head">
+      <h1>Избранное</h1>
+      <p>Ваши маршруты с выбранными остановками и ближайшим рейсом.</p>
+    </header>
+    ${favListHTML()}`;
+}
+
 function render(){
   const r = currentRoute();
   if (r){ renderRoute(r); window.scrollTo(0, 0); return; }
-  renderIndex();
-  if (location.hash === "#favs"){
-    const s = document.getElementById("fav-section");
-    if (s) s.scrollIntoView({ block: "start" });
-  } else window.scrollTo(0, 0);
+  if (location.hash === "#favs") renderFavs(); else renderIndex();
+  window.scrollTo(0, 0);
 }
 
 /* Changes to dropdowns and buttons. */
